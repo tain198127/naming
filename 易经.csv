@@ -1,0 +1,7 @@
+﻿character,sentence,line,document,shengmu,yunmu,shengdiao,bihua,cixing,sentiment,sentiment_score
+黄,黄裳,"六五，黄裳，元吉。 |""黄裳元吉""，文在中也。
+",/Users/danebrown/develop/nlp/易经.txt,h,uang,2,11,a,positive,0.958267280722406
+黄,黄裳元吉,"六五，黄裳，元吉。 |""黄裳元吉""，文在中也。
+",/Users/danebrown/develop/nlp/易经.txt,h,uang,2,11,a,positive,0.958267280722406
+中,中也,"六五，黄裳，元吉。 |""黄裳元吉""，文在中也。
+",/Users/danebrown/develop/nlp/易经.txt,zh,ong,1,4,f,positive,0.958267280722406
