@@ -7,11 +7,16 @@ import jieba
 import jieba.analyse
 import jieba.posseg
 import jiagu
+import logging
 import os
 from torch.autograd import Variable
 import pandas as pd
 from pypinyin import pinyin, lazy_pinyin,Style
 import tensorflow as tf
+
+from sklearn import feature_extraction
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import CountVectorizer
 
 '''
 1. 两个字的名字，第一个字要1声，第二个字，如果是a,o,e,eu,wu,yu的，二声好听。否则是一声好听。
@@ -45,6 +50,7 @@ strokes = []
 yunmuStay=['a','o','e','eu','wu','yu']
 #要跳过的声母，因为名字有爆破音，因此不需要再次出现爆破音
 skip_shengmu=['b','p','t','d','k']
+skip_yunmu=['ao']
 #要跳过的词性，名词、代词、动词、量词都要跳过。因为这些词在名字中不好听
 skip_cixing=['n','r','v','m','p','d','z']
 
@@ -53,7 +59,7 @@ def cut(line):
     return split
 
 
-
+# 读文件
 def readFile(fileName):
     word_idx = {}
     """
@@ -63,8 +69,9 @@ def readFile(fileName):
     file 文章
     :return: 语句,行,文章名称的map
     """
-    f = open(fileName)
 
+    f = open(fileName)
+    inserted_hash_tag=[]
     for line in f.readlines():
         if line in skip_word or line.isdecimal() or line.isdigit() or line.isspace():
             continue
@@ -74,22 +81,33 @@ def readFile(fileName):
         # 指的是哪篇文章的哪句话
         # word表示的是切割出来的词
         # line表示一行 fileName表示文章名称
-        doc = {'line': line, 'file': fileName}
+        hash = str(line.__hash__())+'_'+str(fileName.__hash__())
+        doc = {'line': line, 'file': fileName,'hash':hash}
         for word in seg_list:
             if word in skip_word or word.isdecimal() or word.isdigit() or word.isspace():
                 continue
             if word not in word_idx.keys():
                 word_idx[word] = []
             """倒排索引"""
-            word_idx.get(word).append(doc)
+            logging.debug("解析出来的seg_list的每一条信息是:%s",word)
+            #去重
+            docs = [d for d in word_idx.get(word) if d['hash'] == hash]
+            if docs is None or len(docs) == 0:
+                word_idx.get(word).append(doc)
     return word_idx
 
-
-def read_character(W_IDX):
+# 生成索引
+def read_character(W_IDX,parentFirstName, isSkipBadWord=False):
+    if parentFirstName is None:
+        raise BaseException('parentFirstName 不能为空')
+    first_name_shengmu = pinyin(parentFirstName, style=Style.INITIALS)[0][0]
+    first_name_yunmu = pinyin(parentFirstName, style=Style.FINALS)[0][0]
     character_idx = {}
     """
     字符串-->句子-->行-->文章 的关联关系
     :param W_IDX:
+    :param parentFirstName 父亲的姓氏
+    :param isSkipBadWord 是否跳过不好的词，默认不跳过
     :return:
     """
     # word表示的是词
@@ -109,7 +127,7 @@ def read_character(W_IDX):
                 if c in cixing:
                     isSkip=True
                     continue
-            if isSkip:
+            if isSkip and isSkipBadWord:
                 continue
             #如果是需要跳过的声母，则跳过
 
@@ -124,21 +142,25 @@ def read_character(W_IDX):
 
             shengmu = pinyin(char, style=Style.INITIALS)[0][0]
             yunmu = pinyin(char, style=Style.FINALS)[0][0]
-            if shengmu in skip_shengmu:
+            if (shengmu ==first_name_shengmu or yunmu == first_name_yunmu) :
+                continue
+            if shengmu in skip_shengmu and isSkipBadWord:
+                continue
+            if yunmu in skip_yunmu and isSkipBadWord:
                 continue
             #声调
             shengdiao=0
             if pinyin(char, style=Style.TONE2) and pinyin(char, style=Style.TONE2)[0][0] and re.findall(r'\d+', pinyin(char, style=Style.TONE2)[0][0]):
                 shengdiao = re.findall(r'\d+', pinyin(char, style=Style.TONE2)[0][0])[0]
             #如果声调不是1，2声，则抛弃
-            if shengdiao not in ['1','2']:
+            if shengdiao not in ['1','2'] and isSkipBadWord:
                 continue
             #如果声调是2声，而且韵母不是a,o,e,i,wu,yu，则跳过
-            if shengdiao == 2 and yunmu not in yunmuStay:
+            if (shengdiao == 2 and yunmu not in yunmuStay) and isSkipBadWord:
                 continue
             #笔画
             bihua = get_stroke(char)
-            if bihua > 12:
+            if bihua > 12 and isSkipBadWord:
                 continue
 
             for w in doc_idx:
@@ -146,13 +168,25 @@ def read_character(W_IDX):
                 # 要看整个句子是不是好的句子，好句子才留下
                 sentiment = jiagu.sentiment(w['line'])
                 # 排除负能量词
-                if sentiment[0] == 'negative' or sentiment[1] < 0.75:
+                if (sentiment[0] == 'negative' or sentiment[1] < 0.75) and isSkipBadWord:
                     continue
-                #这里要计算字符的信息
+                # 这里要计算字符的信息
                 # 建议规则 笔画要少，
                 # 词性要求必须是好的
                 # 不要动名量词
-                node = {'sent': word, 'line': w['line'], 'doc': w['file'],'shengmu':shengmu,'yunmu':yunmu,'shengdiao':shengdiao,'bihua':bihua,'cixing':cixing,'sentiment':sentiment[0],'sentiment_score':sentiment[1]}
+                # 计算每个字在每句话中的position
+                # 计算每个字在每句话中的TF-IDF
+                node = {'sent': word,
+                        'line': w['line'],
+                        'doc': w['file'],
+                        'shengmu':shengmu,
+                        'yunmu':yunmu,
+                        'shengdiao':shengdiao,
+                        'bihua':bihua,
+                        'cixing':cixing,
+                        'sentiment':sentiment[0],
+                        'sentiment_score':sentiment[1]
+                        }
                 character_idx.get(char).append(node)
     return character_idx
 
@@ -172,14 +206,41 @@ def get_stroke(c):
         -1
         # can also return 0
 
-def save_character_to_csv(c_idx, file_name):
+# 保存到csv
+def save_character_to_csv(line, file_name):
     """
     保存character_idx到csv
     :param c_idx:
     :file_name 保存的文件位置
     :return:
     """
-    columns = ['character', 'sentence', 'line', 'document','shengmu','yunmu','shengdiao','bihua','cixing','sentiment','sentiment_score']
+    columns = ['character', 'sentence', 'line', 'document','shengmu','yunmu','shengdiao','bihua','cixing','sentiment',
+               'sentiment_score','td_idf','degree','char_pos','pos']
+    # line = []
+    # for c in c_idx:
+    #     """
+    #     拿到每一个字，和字对应的句子+文章
+    #     """
+    #     char_idxer = c_idx.get(c)
+    #     for ch in char_idxer:
+    #         """
+    #         枚举每一个句子元数据，sent表示句子 file表示文章名
+    #         """
+    #         line.append([c, ch['sent'], ch['line'],ch['doc'],ch['shengmu'],ch['yunmu'],ch['shengdiao'],ch['bihua'],ch['cixing'],ch['sentiment'],ch['sentiment_score']])
+
+    exefile = pd.DataFrame(line, columns=columns)
+    exefile.to_csv(file_name, index=0, encoding='utf_8_sig')
+
+# 对字进行过滤
+def name_filter(name_dim):
+
+
+
+    pass
+
+# 转成N维数组
+def name_mapping(c_idx):
+
     line = []
     for c in c_idx:
         """
@@ -190,20 +251,51 @@ def save_character_to_csv(c_idx, file_name):
             """
             枚举每一个句子元数据，sent表示句子 file表示文章名
             """
-            line.append([c, ch['sent'], ch['line'],ch['doc'],ch['shengmu'],ch['yunmu'],ch['shengdiao'],ch['bihua'],ch['cixing'],ch['sentiment'],ch['sentiment_score']])
+            line.append([c, ch['sent'], ch['line'], ch['doc'], ch['shengmu'], ch['yunmu'], ch['shengdiao'], ch['bihua'],
+                         ch['cixing'], ch['sentiment'], ch['sentiment_score']])
+    return line
 
-    exefile = pd.DataFrame(line, columns=columns)
-    exefile.to_csv(file_name, index=0, encoding='utf_8_sig')
+# 进行整体计算
+def name_overall_calc(name_dim):
+    for ch in name_dim:
+        td_idf = cal_tf_idf(ch)
+        center_degree = cal_center_degree(ch)
+        char_pos,pos = cal_pos(ch)
+        ch.append(td_idf)
+        ch.append(center_degree)
+        ch.append(char_pos)
+        ch.append(pos)
+# 计算 tf_idf
+def cal_tf_idf(ch):
+    return 1
+# 计算 中心度
+# 简单来说，就是这个子在文章是否出于开头或者末尾
+def cal_center_degree(ch):
+    return 0
+# 计算所在的char_pos, pos
+def cal_pos(ch):
+    char = ch[0]
+    sent = ch[1]
+    line = ch[2]
+    sent_pos = line.index(sent)
+    char_pos = sent.index(char)
+    pos = sent_pos+char_pos
+    return char_pos,pos
 
-
+# 对某个字的联想
+def hint_word(char):
+    pass
 def generate_idx():
     """
     读取诗经、易经、道德经的内容，并形成倒排索引
     :return:
     """
-    widx = readFile('/Users/danebrown/develop/nlp/庄子.txt')
-    c_idx = read_character(widx)
-    save_character_to_csv(c_idx, "/Users/danebrown/develop/nlp/庄子.csv")
+    widx = readFile('./诗经.txt')
+    c_idx = read_character(widx,'鲍')
+    name_dim = name_mapping(c_idx)
+    name_overall_calc(name_dim)
+    name_filter(name_dim)
+    save_character_to_csv(name_dim, "./诗经.csv")
 
     # yijing_idx = readFile('/Users/danebrown/develop/nlp/易经.txt')
     # yijing_c_idx = read_character(yijing_idx)
