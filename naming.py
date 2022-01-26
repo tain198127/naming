@@ -9,6 +9,7 @@ import jieba.posseg
 import jiagu
 import logging
 import synonyms
+
 import os
 from torch.autograd import Variable
 import pandas as pd
@@ -42,13 +43,13 @@ embeds = nn.Embedding(2, 5)  # 第一步定义词向量大小，参数一为单�
 vectorizer = CountVectorizer()
 transformer = TfidfTransformer()
 
-# character_idx = {}
+
 """
 要跳过的词
 """
 skip_word = punctuation + '□'
 pattern = r',|\.|/|;|\'|`|\[|\]|<|>|\?|:|"|\{|\}|\~|!|@|#|\$|%|\^|&|\(|\)|-|=|\_|\+|，|。|、|；|‘|’|【|】|·|！| ' \
-          r'|…|（|）|，|。|；|：|？|（|）|【|】|「|」|！|、|\||《|》|\" |\" |在|兮|否'
+          r'|…|（|）|，|。|；|：|？|（|）|【|】|「|」|！|、|\||《|》|\" |\"'
 strokes = []
 # 可以保留的韵母
 yunmuStay = ['a', 'o', 'e', 'eu', 'wu', 'yu']
@@ -58,12 +59,22 @@ skip_shengmu = ['b', 'p', 't', 'd', 'k']
 skip_cixing = ['n', 'r', 'v', 'm', 'p', 'd', 'z']
 
 
-def cut(line):
+def _cut(line):
+    """
+    断句
+    :param line:
+    :return:
+    """
     split = re.split(pattern, line)
     return split
 
 
 def is_Chinese(ch):
+    """
+    判断是否为中文
+    :param ch: 字符串
+    :return: 是否为中文
+    """
     if '\u4e00' <= ch <= '\u9fff':
         return True
     return False
@@ -71,6 +82,18 @@ def is_Chinese(ch):
 
 # 读文件
 def readFile(fileName):
+    """
+    读文件
+    :param fileName: 文件名称
+    :return:数据格式
+    word_idx{
+        word(切割出来的词):{
+            line:'一行内容',
+            file:'文件名'
+            hash:'hash值'
+        }
+    }
+    """
     word_idx = {}
     """
     :param fileName:
@@ -87,7 +110,7 @@ def readFile(fileName):
             continue
 
         # seg_list = jieba.cut(line, use_paddle=True)
-        seg_list = cut(line)  # 切割成一句话
+        seg_list = _cut(line)  # 切割成一句话
         # 指的是哪篇文章的哪句话
         # word表示的是切割出来的词
         # line表示一行 fileName表示文章名称
@@ -108,6 +131,11 @@ def readFile(fileName):
 
 
 def gen_ShengDiao(char):
+    """
+    计算声调
+    :param char:文字
+    :return:声调
+    """
     shengdiao = 0
     if pinyin(char, style=Style.TONE2) \
             and pinyin(char, style=Style.TONE2)[0][0] \
@@ -117,6 +145,11 @@ def gen_ShengDiao(char):
 
 
 def gen_cixing(char):
+    """
+    计算词性，名词、动词、形容词等
+    :param char:文字
+    :return:词性
+    """
     wordCut = jieba.posseg.cut(char)
     # 词性
     cixing = 'n'
@@ -126,7 +159,12 @@ def gen_cixing(char):
 
 
 # 生成索引
-def read_character(W_IDX, isSkipBadWord=False):
+def read_character(W_IDX):
+    """
+    生成名字属性矩阵
+    :param W_IDX: 读进来的文件
+    :return:
+    """
     character_idx = {}
     """
     字符串-->句子-->行-->文章 的关联关系
@@ -165,8 +203,10 @@ def read_character(W_IDX, isSkipBadWord=False):
 
             for w in doc_idx:
                 # sentiment positive 还是negivate。以及对应的分数
-                # 要看整个句子是不是好的句子，好句子才留下
-                sentiment = jiagu.sentiment(w['line'])
+                # 这里看的是切割出来的每一个单句，的情感分析。因为一个字可能出现在多个文章中，但是由于正片文章情感波动太大，难以用
+                # 这个作为参考。但是又不能直接用 字 本身作为情感分析，因为情感分析要求有上下文，上下文越多，越能体现情感。因此这里折中
+                # 使用切分出来的字句
+                sentiment = jiagu.sentiment(word.strip())
                 # 这里要计算字符的信息
                 # 建议规则 笔画要少，
                 # 词性要求必须是好的
@@ -190,12 +230,22 @@ def read_character(W_IDX, isSkipBadWord=False):
 
 
 def _init_stroke(strokes_path):
+    """
+    初始化笔画工具
+    :param strokes_path:
+    :return:
+    """
     with open(strokes_path, 'r') as fr:
         for line in fr:
             strokes.append(int(line.strip()))
 
 
 def get_stroke(c):
+    """
+    计算笔画
+    :param c:中文字
+    :return: 笔画
+    """
     # 如果返回 0, 则也是在unicode中不存在kTotalStrokes字段
     unicode_ = ord(c)
     if 13312 <= unicode_ <= 64045:
@@ -210,11 +260,12 @@ def get_stroke(c):
 # 保存到csv
 def save_character_to_csv(line, file_name):
     """
-    保存character_idx到csv
-    :param c_idx:
-    :file_name 保存的文件位置
+    保存到CSV
+    :param line: 要保存的内容
+    :param file_name: 文件名
     :return:
     """
+
     columns = ['character', 'sentence', 'line', 'document', 'shengmu', 'yunmu', 'shengdiao', 'bihua', 'cixing',
                # 'sentiment',
                'sentiment_score', 'sentence_length', 'td_idf', 'degree', 'char_pos', 'pos']
@@ -235,8 +286,14 @@ def save_character_to_csv(line, file_name):
 
 
 # 对字进行过滤
-
 def name_filter(name_dim, family_name, skip_level=100):
+    """
+    根据一些条件进行过滤
+    :param name_dim:
+    :param family_name:
+    :param skip_level:
+    :return:
+    """
     """
     :parameter name_dim 要处理的对象数组
     :parameter family_name 姓
@@ -282,6 +339,11 @@ def name_filter(name_dim, family_name, skip_level=100):
 
 # 转成N维数组
 def name_mapping(c_idx):
+    """
+    将字的对象数组转成数组
+    :param c_idx:
+    :return:
+    """
     line = []
     for c in c_idx:
         """
@@ -301,6 +363,11 @@ def name_mapping(c_idx):
 
 # 进行整体计算
 def name_overall_calc(name_dim):
+    """
+    进行一些字的属性扩展，例如td_idf，度中心等等
+    :param name_dim: 名字属性表
+    :return:
+    """
     for ch in name_dim:
         td_idf = 1
         center_degree = cal_center_degree(ch)
@@ -313,6 +380,11 @@ def name_overall_calc(name_dim):
 
 # 计算 tf_idf
 def cal_tf_idf(line):
+    """
+    计算tf_idf
+    :param line:
+    :return:
+    """
     X = vectorizer.fit_transform([line])
     word = vectorizer.get_feature_names()
     tfidf = transformer.fit_transform(X)
@@ -324,6 +396,11 @@ def cal_tf_idf(line):
 # 计算 中心度
 # 简单来说，就是这个字在文章是否出于开头或者末尾
 def cal_center_degree(ch):
+    """
+    计算读中心
+    :param ch:
+    :return:
+    """
     # 越靠近两边，这个度越高，越靠近中心度越低
     char = ch[0]
     sent = ch[1]
@@ -333,6 +410,11 @@ def cal_center_degree(ch):
 
 # 计算所在的char_pos, pos
 def cal_pos(ch):
+    """
+    计算字符所在位置
+    :param ch:
+    :return:
+    """
     char = ch[0]
     sent = ch[1]
     line = ch[2]
@@ -344,6 +426,11 @@ def cal_pos(ch):
 
 # 对某个字的联想
 def hint_word(name_dim):
+    """
+    对字进行相似字联想，不建议开启，性能很差
+    :param name_dim:
+    :return:
+    """
     hints = []
     # 已经处理过的话，不再处理
     processed = []
@@ -380,10 +467,9 @@ def hint_word(name_dim):
 
     return hints
 
-
 def generate_idx():
     """
-    读取诗经、易经、道德经的内容，并形成倒排索引
+    读取诗经、易经、道德经的内容，并形成倒排索引，数据预处理
     :return:
     """
     widx = readFile('./诗经.txt')
@@ -393,6 +479,7 @@ def generate_idx():
     # hintWord = hint_word(name_dim)
     # name_dim.extend(name_dim)
     result = name_filter(name_dim, '鲍', 0)
+
     save_character_to_csv(result, "./诗经.csv")
 
     # yijing_idx = readFile('/Users/danebrown/develop/nlp/易经.txt')
