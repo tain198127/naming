@@ -1,3 +1,4 @@
 jieba==0.42.1
-funnlp==0.1.5
+funlp==0.1.5
 jiagu==0.2.3
+synonyms==3.16.0
