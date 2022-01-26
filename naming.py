@@ -54,7 +54,6 @@ strokes = []
 yunmuStay = ['a', 'o', 'e', 'eu', 'wu', 'yu']
 # 要跳过的声母，因为名字有爆破音，因此不需要再次出现爆破音
 skip_shengmu = ['b', 'p', 't', 'd', 'k']
-skip_yunmu = ['ao']
 # 要跳过的词性，名词、代词、动词、量词都要跳过。因为这些词在名字中不好听
 skip_cixing = ['n', 'r', 'v', 'm', 'p', 'd', 'z']
 
@@ -107,6 +106,7 @@ def readFile(fileName):
                 word_idx.get(word).append(doc)
     return word_idx
 
+
 def gen_ShengDiao(char):
     shengdiao = 0
     if pinyin(char, style=Style.TONE2) \
@@ -115,6 +115,7 @@ def gen_ShengDiao(char):
         shengdiao = re.findall(r'\d+', pinyin(char, style=Style.TONE2)[0][0])[0]
     return shengdiao
 
+
 def gen_cixing(char):
     wordCut = jieba.posseg.cut(char)
     # 词性
@@ -122,6 +123,7 @@ def gen_cixing(char):
     for w, f in wordCut:
         cixing = f
     return cixing
+
 
 # 生成索引
 def read_character(W_IDX, isSkipBadWord=False):
@@ -171,7 +173,7 @@ def read_character(W_IDX, isSkipBadWord=False):
                 # 不要动名量词
                 # 计算每个字在每句话中的position
                 # 计算每个字在每句话中的TF-IDF
-                node = {'sent': word,
+                node = {'sent': word.strip(),
                         'line': w['line'],
                         'doc': w['file'],
                         'shengmu': shengmu,
@@ -179,8 +181,9 @@ def read_character(W_IDX, isSkipBadWord=False):
                         'shengdiao': shengdiao,
                         'bihua': bihua,
                         'cixing': cixing,
-                        'sentiment': sentiment[0],
-                        'sentiment_score': -sentiment[1] if sentiment[0] == 'negative'else sentiment[1]
+                        # 'sentiment': sentiment[0],
+                        'sentiment_score': -sentiment[1] if sentiment[0] == 'negative' else sentiment[1],
+                        'word_len': len(word.strip())
                         }
                 character_idx.get(char).append(node)
     return character_idx
@@ -213,8 +216,8 @@ def save_character_to_csv(line, file_name):
     :return:
     """
     columns = ['character', 'sentence', 'line', 'document', 'shengmu', 'yunmu', 'shengdiao', 'bihua', 'cixing',
-               'sentiment',
-               'sentiment_score', 'td_idf', 'degree', 'char_pos', 'pos']
+               # 'sentiment',
+               'sentiment_score', 'sentence_length', 'td_idf', 'degree', 'char_pos', 'pos']
     # line = []
     # for c in c_idx:
     #     """
@@ -232,7 +235,13 @@ def save_character_to_csv(line, file_name):
 
 
 # 对字进行过滤
-def name_filter(name_dim, family_name):
+
+def name_filter(name_dim, family_name, skip_level=100):
+    """
+    :parameter name_dim 要处理的对象数组
+    :parameter family_name 姓
+    :parameter skip_level 过滤等级，越低过滤的越少，越高过滤的越多
+    """
     first_name_shengmu = pinyin(family_name, style=Style.INITIALS)[0][0]
     first_name_yunmu = pinyin(family_name, style=Style.FINALS)[0][0]
     result = []
@@ -246,22 +255,21 @@ def name_filter(name_dim, family_name):
         shengdiao = ch[6]
         bihua = ch[7]
         cixing = ch[8]
-        sentiment = ch[9]
+        # sentiment = ch[9]
         sentiment_score = ch[10]
-        if shengmu == first_name_shengmu or yunmu == first_name_yunmu:
+
+        if (shengmu == first_name_shengmu or yunmu == first_name_yunmu) and skip_level > 1:
             continue
         # if len([c for c in skip_cixing if c in cixing]) > 0:
         #     continue
         # if (cixing in skip_cixing):
         #     continue
-        if shengmu in skip_shengmu:
+        if shengmu in skip_shengmu and skip_level > 2:
             continue
-        if yunmu in skip_yunmu:
-            continue
-        if shengdiao not in ['1', '2']:
+        if shengdiao not in ['1', '2'] and skip_level > 3:
             continue
             # 如果声调是2声，而且韵母不是a,o,e,i,wu,yu，则跳过
-        if shengdiao == 2 and yunmu not in yunmuStay:
+        if (shengdiao == 2 and yunmu not in yunmuStay) and skip_level > 4:
             continue
         # if bihua > 12:
         #     continue
@@ -285,7 +293,9 @@ def name_mapping(c_idx):
             枚举每一个句子元数据，sent表示句子 file表示文章名
             """
             line.append([c, ch['sent'], ch['line'], ch['doc'], ch['shengmu'], ch['yunmu'], ch['shengdiao'], ch['bihua'],
-                         ch['cixing'], ch['sentiment'], ch['sentiment_score']])
+                         ch['cixing'],
+                         # ch['sentiment'],
+                         ch['sentiment_score'], ch['word_len']])
     return line
 
 
@@ -344,7 +354,7 @@ def hint_word(name_dim):
             continue
         processed.append(char)
         hintChar = synonyms.nearby(char)[0][1:3]
-        if len(hintChar) >0:
+        if len(hintChar) > 0:
             for h in hintChar:
                 for w in h:
                     if is_Chinese(w):
@@ -362,9 +372,11 @@ def hint_word(name_dim):
                             cixing = gen_cixing(newChar)
                             sentiment_tmp = jiagu.sentiment(newChar)
                             sentiment = sentiment_tmp[0]
-                            sentiment_score = -sentiment_tmp[1] if sentiment_tmp[0] == 'negative'else sentiment_tmp[1]
+                            sentiment_score = -sentiment_tmp[1] if sentiment_tmp[0] == 'negative' else sentiment_tmp[1]
                             hints.append([newChar, sent, line, doc, shengmu, yunmu, shengdiao, bihua,
-                                          cixing, sentiment, sentiment_score])
+                                          cixing,
+                                          # sentiment,
+                                          sentiment_score])
 
     return hints
 
@@ -378,9 +390,9 @@ def generate_idx():
     c_idx = read_character(widx)
     name_dim = name_mapping(c_idx)
     name_overall_calc(name_dim)
-    hintWord = hint_word(name_dim)
-    name_dim.extend(hintWord)
-    result = name_filter(name_dim, '鲍')
+    # hintWord = hint_word(name_dim)
+    # name_dim.extend(name_dim)
+    result = name_filter(name_dim, '鲍', 0)
     save_character_to_csv(result, "./诗经.csv")
 
     # yijing_idx = readFile('/Users/danebrown/develop/nlp/易经.txt')
