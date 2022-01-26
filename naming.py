@@ -207,6 +207,7 @@ def read_character(W_IDX):
                 # 这个作为参考。但是又不能直接用 字 本身作为情感分析，因为情感分析要求有上下文，上下文越多，越能体现情感。因此这里折中
                 # 使用切分出来的字句
                 sentiment = jiagu.sentiment(word.strip())
+                char_sentiment = jiagu.sentiment(char)
                 # 这里要计算字符的信息
                 # 建议规则 笔画要少，
                 # 词性要求必须是好的
@@ -221,7 +222,7 @@ def read_character(W_IDX):
                         'shengdiao': shengdiao,
                         'bihua': bihua,
                         'cixing': cixing,
-                        # 'sentiment': sentiment[0],
+                        'char_sentiment': char_sentiment[1] if char_sentiment[0] == 'negative' else char_sentiment[1],
                         'sentiment_score': -sentiment[1] if sentiment[0] == 'negative' else sentiment[1],
                         'word_len': len(word.strip())
                         }
@@ -267,7 +268,7 @@ def save_character_to_csv(line, file_name):
     """
 
     columns = ['character', 'sentence', 'line', 'document', 'shengmu', 'yunmu', 'shengdiao', 'bihua', 'cixing',
-               # 'sentiment',
+               'char_sentiment',
                'sentiment_score', 'sentence_length', 'td_idf', 'degree', 'char_pos', 'pos']
     # line = []
     # for c in c_idx:
@@ -312,7 +313,7 @@ def name_filter(name_dim, family_name, skip_level=100):
         shengdiao = ch[6]
         bihua = ch[7]
         cixing = ch[8]
-        # sentiment = ch[9]
+        sentiment = ch[9]
         sentiment_score = ch[10]
 
         if (shengmu == first_name_shengmu or yunmu == first_name_yunmu) and skip_level > 1:
@@ -356,7 +357,7 @@ def name_mapping(c_idx):
             """
             line.append([c, ch['sent'], ch['line'], ch['doc'], ch['shengmu'], ch['yunmu'], ch['shengdiao'], ch['bihua'],
                          ch['cixing'],
-                         # ch['sentiment'],
+                         ch['char_sentiment'],
                          ch['sentiment_score'], ch['word_len']])
     return line
 
@@ -458,11 +459,11 @@ def hint_word(name_dim):
                             bihua = get_stroke(newChar)
                             cixing = gen_cixing(newChar)
                             sentiment_tmp = jiagu.sentiment(newChar)
-                            sentiment = sentiment_tmp[0]
-                            sentiment_score = -sentiment_tmp[1] if sentiment_tmp[0] == 'negative' else sentiment_tmp[1]
+                            char_sentiment = -sentiment_tmp[1] if sentiment_tmp[0] == 'negative' else sentiment_tmp[1]
+                            sentiment_score = 0
                             hints.append([newChar, sent, line, doc, shengmu, yunmu, shengdiao, bihua,
                                           cixing,
-                                          # sentiment,
+                                          char_sentiment,
                                           sentiment_score])
 
     return hints
@@ -472,15 +473,15 @@ def generate_idx():
     读取诗经、易经、道德经的内容，并形成倒排索引，数据预处理
     :return:
     """
-    widx = readFile('./诗经.txt')
+    widx = readFile('./易经.txt')
     c_idx = read_character(widx)
     name_dim = name_mapping(c_idx)
     name_overall_calc(name_dim)
     # hintWord = hint_word(name_dim)
-    # name_dim.extend(name_dim)
-    result = name_filter(name_dim, '鲍', 0)
+    # name_dim.extend(hintWord)
+    result = name_filter(name_dim, '鲍', 100)
 
-    save_character_to_csv(result, "./诗经.csv")
+    save_character_to_csv(result, "./易经.csv")
 
     # yijing_idx = readFile('/Users/danebrown/develop/nlp/易经.txt')
     # yijing_c_idx = read_character(yijing_idx)
