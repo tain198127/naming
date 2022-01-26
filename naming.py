@@ -180,7 +180,7 @@ def read_character(W_IDX, isSkipBadWord=False):
                         'bihua': bihua,
                         'cixing': cixing,
                         'sentiment': sentiment[0],
-                        'sentiment_score': sentiment[1]
+                        'sentiment_score': -sentiment[1] if sentiment[0] == 'negative'else sentiment[1]
                         }
                 character_idx.get(char).append(node)
     return character_idx
@@ -362,7 +362,7 @@ def hint_word(name_dim):
                             cixing = gen_cixing(newChar)
                             sentiment_tmp = jiagu.sentiment(newChar)
                             sentiment = sentiment_tmp[0]
-                            sentiment_score = sentiment_tmp[1]
+                            sentiment_score = -sentiment_tmp[1] if sentiment_tmp[0] == 'negative'else sentiment_tmp[1]
                             hints.append([newChar, sent, line, doc, shengmu, yunmu, shengdiao, bihua,
                                           cixing, sentiment, sentiment_score])
 
