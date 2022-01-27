@@ -222,7 +222,7 @@ def read_character(W_IDX):
                         'shengdiao': shengdiao,
                         'bihua': bihua,
                         'cixing': cixing,
-                        'char_sentiment': char_sentiment[1] if char_sentiment[0] == 'negative' else char_sentiment[1],
+                        'char_sentiment': -char_sentiment[1] if char_sentiment[0] == 'negative' else char_sentiment[1],
                         'sentiment_score': -sentiment[1] if sentiment[0] == 'negative' else sentiment[1],
                         'word_len': len(word.strip())
                         }
@@ -473,7 +473,7 @@ def generate_idx():
     读取诗经、易经、道德经的内容，并形成倒排索引，数据预处理
     :return:
     """
-    widx = readFile('./易经.txt')
+    widx = readFile('./诗经.txt')
     c_idx = read_character(widx)
     name_dim = name_mapping(c_idx)
     name_overall_calc(name_dim)
@@ -481,7 +481,7 @@ def generate_idx():
     # name_dim.extend(hintWord)
     result = name_filter(name_dim, '鲍', 100)
 
-    save_character_to_csv(result, "./易经.csv")
+    save_character_to_csv(result, "./诗经.csv")
 
     # yijing_idx = readFile('/Users/danebrown/develop/nlp/易经.txt')
     # yijing_c_idx = read_character(yijing_idx)
