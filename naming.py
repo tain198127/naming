@@ -459,6 +459,7 @@ def hint_word(name_dim):
                             bihua = get_stroke(newChar)
                             cixing = gen_cixing(newChar)
                             sentiment_tmp = jiagu.sentiment(newChar)
+
                             char_sentiment = -sentiment_tmp[1] if sentiment_tmp[0] == 'negative' else sentiment_tmp[1]
                             sentiment_score = 0
                             hints.append([newChar, sent, line, doc, shengmu, yunmu, shengdiao, bihua,

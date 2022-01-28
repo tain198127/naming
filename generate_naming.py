@@ -1,8 +1,175 @@
-# coding=utf-8
+# coding=utf8
+import torch
+import torch.nn as nn
+import matplotlib.pyplot as plt
+from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+text = "Here is the sentence I want embeddings for."
+text = "After stealing money from the bank vault, the bank robber was seen fishing on the Mississippi river bank."
+marked_text = "[CLS] " + text + " [SEP]"
+print (marked_text)
+tokenized_text = tokenizer.tokenize(marked_text)
+print (tokenized_text)
+list(tokenizer.vocab.keys())[5000:5020]
+indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
+for tup in zip(tokenized_text, indexed_tokens):
+  print (tup)
+
+segments_ids = [1] * len(tokenized_text)
+print (segments_ids)
+
+tokens_tensor = torch.tensor([indexed_tokens])
+segments_tensors = torch.tensor([segments_ids])
+
+# Load pre-trained model (weights)
+model = BertModel.from_pretrained('bert-base-uncased')
+
+# Put the model in "evaluation" mode, meaning feed-forward operation.
+model.eval()
+
+with torch.no_grad():
+    encoded_layers, _ = model(tokens_tensor, segments_tensors)
+print ("Number of layers:", len(encoded_layers))
+layer_i = 0
+
+print ("Number of batches:", len(encoded_layers[layer_i]))
+batch_i = 0
+
+print ("Number of tokens:", len(encoded_layers[layer_i][batch_i]))
+token_i = 0
+
+print ("Number of hidden units:", len(encoded_layers[layer_i][batch_i][token_i]))
+
+token_i = 5
+layer_i = 5
+vec = encoded_layers[layer_i][batch_i][token_i]
+def _showPlt(v):
+    # Plot the values as a histogram to show their distribution.
+    plt.figure(figsize=(10,10))
+    plt.hist(vec, bins=200)
+    plt.show()
+
+# Convert the hidden state embeddings into single token vectors
+
+# Holds the list of 12 layer embeddings for each token
+# Will have the shape: [# tokens, # layers, # features]
+token_embeddings = []
+
+# For each token in the sentence...
+for token_i in range(len(tokenized_text)):
+
+    # Holds 12 layers of hidden states for each token
+    hidden_layers = []
+
+    # For each of the 12 layers...
+    for layer_i in range(len(encoded_layers)):
+        # Lookup the vector for `token_i` in `layer_i`
+        vec = encoded_layers[layer_i][batch_i][token_i]
+
+        hidden_layers.append(vec)
+
+    token_embeddings.append(hidden_layers)
+
+# Sanity check the dimensions:
+print("Number of tokens in sequence:", len(token_embeddings))
+print("Number of layers per token:", len(token_embeddings[0]))
+concatenated_last_4_layers = [torch.cat((layer[-1], layer[-2], layer[-3], layer[-4]), 0) for layer in token_embeddings] # [number_of_tokens, 3072]
+
+summed_last_4_layers = [torch.sum(torch.stack(layer)[-4:], 0) for layer in token_embeddings] # [number_of_tokens, 768]
+
+sentence_embedding = torch.mean(encoded_layers[11], 1)
+print ("Our final sentence embedding vector of shape:"), sentence_embedding[0].shape[0]
+
+for i,x in enumerate(tokenized_text):
+  print (i,x)
+
+print ("First fifteen values of 'bank' as in 'bank robber':")
+summed_last_4_layers[10][:15]
 
 
-def generate_name(name_dim):
+print ("First fifteen values of 'bank' as in 'bank vault':")
+summed_last_4_layers[6][:15]
+
+print ("First fifteen values of 'bank' as in 'river bank':")
+summed_last_4_layers[19][:15]
+
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Compare "bank" as in "bank robber" to "bank" as in "river bank"
+different_bank = cosine_similarity(summed_last_4_layers[10].reshape(1,-1), summed_last_4_layers[19].reshape(1,-1))[0][0]
+
+# Compare "bank" as in "bank robber" to "bank" as in "bank vault"
+same_bank = cosine_similarity(summed_last_4_layers[10].reshape(1,-1), summed_last_4_layers[6].reshape(1,-1))[0][0]
+
+print ("Similarity of 'bank' as in 'bank robber' to 'bank' as in 'bank vault':",  same_bank)
+
+print ("Similarity of 'bank' as in 'bank robber' to 'bank' as in 'river bank':",  different_bank)
+
+
+def _distance(family_name, names):
     """
+    计算姓和名字的距离
+    :param family_name:
+    :param names:
+    :return:
+    """
+    pass
+
+
+def _sentiment(family_name, names):
+    """
+    计算情感分数
+    :param family_name:
+    :param names:
+    :return:
+    """
+    pass
+
+
+def _stoke(family_name, names):
+    """
+    计算笔画
+    :param family_name:
+    :param names:
+    :return:
+    """
+    pass
+
+
+def _similar(name_dim, family_name):
+    """
+    计算姓和名字的相似度
+    :param name_dim:
+    :param family_name:
+    :return:
+    """
+    pass
+
+def _pronounce(name_dim, family_name):
+    """
+    计算声母韵母
+    :param name_dim:
+    :param family_name:
+    :return:
+    """
+    pass
+def _tone(name_dim, family_name):
+    """
+    计算声调
+    :param name_dim:
+    :param family_name:
+    :return:
+    """
+    pass
+def _search():
+    """
+    随机选择一些字，作为名字的种子
+    :return:
+    """
+    pass
+def generate_name(name_dim, family_name, topK=10):
+    """
+
     生成一些名字，进行组合。这里是最核心的算法。
     模型算法规则：
     随机选两个字，按照如下规则进行计算打分
@@ -18,29 +185,49 @@ def generate_name(name_dim):
     越低表明两者越不容易出现"撞车的情况"，例如：如果有个人姓"王"，那么"侯"字与王字是近义词。两个这两个字组成在一起不好听
     5. 将两个名字与姓氏，通过一个发音算法[P] 得出一个发音系数 p。含义：
     5.1 发音算法P的规则是：姓氏和名字的声母、韵母尽量避免相同。姓氏和名字避免声调一致，若3字的可以1，3同调，或者3个字都不同调。
-    5.2 若两个字是叠音，只要跟姓氏不同音，就可以。
-    5.3 在三个字都不同调的情况下，姓氏位置不能变，两个字的名字全排列组合再去掉声调一致的组合大致有3*3 = 9种组合。其中声调相同只适用于叠字。
-        因此若不考虑叠字，则应该有A42-A21种组合，也就是说有10种组合。配合姓氏的4中声调，应该是有40中排列组合。应该针对每一个
+    6 将名字与姓氏，通过一个声调算法[T] 得到一个声调系数t,含义：
+    6.1 若两个字是叠音，只要跟姓氏不同音，就可以。
+    6.2 在三个字都不同调的情况下，姓氏位置不能变，两个字的名字全排列组合再去掉声调一致的组合大致有3*3 = 9种组合。其中声调相同只适用于叠字。
+        因此若不考虑叠字，则应该有A42A21种组合，也就是说有10种组合。配合姓氏的4中声调，应该是有40中排列组合。应该针对每一个
         姓氏声调进行单独排列。这种声调矩阵，需要计算
-    5.4 名字与姓氏之间的声调关系：
+    6.3 名字与姓氏之间的声调关系：
     12，21，13，31，14，41，23，32，34，43
 1   1   2   3  4   5   6  7   8   9  10
 2   1   2   3  4   5   6  7   8   9  10
 3   1   2   3  4   5   6  7   8   9  10
 4   1   2   3  4   5   6  7   8   9  10
-
-
-    6. 将 d,e,s,y,p，通过一个算法 [N] 得出一个综合系数n
+1：阴平；2：阳平；3：上；4：去
+单字名字规律，第一个是姓氏：
+11，12，13
+21，23，24
+31，32，34
+41，42，43
+两个字名字规律：第一个是姓氏：
+最佳2分，次之1分，其余不得分
+121,133,142最佳|124,132,141次之
+212,213,214,231,232,241,242,243最佳|221,224,223,211,234
+311,312,313,314,321,324,341,342,343最佳|322,323次之
+411,412,413,414,421,423,424,431,432,434最佳
+    7. 将 d,e,s,y,p,t 通过一个算法 [N] 得出一个综合系数n
     算法N中各个系数需要通过深度学习得到
-    7. n越大表明越好：优化参数和损失函数要好好设计
+    8. n越大表明越好：优化参数和损失函数要好好设计
     超参：D,E,S,Y,P,N中的算法参数
-    :param name_dim:
+    :param name_dim: 名字矩阵
+    :param family_name: 姓氏
+    :param topK 返回几个名字
     :return:
     """
+    d = 0
+    e = 0
+    s = 0
+    y = 0
+    p = 0
+    t = 0
+    x1 = torch.random.seed().numerator()
     pass
 
 
-def _naming_loss(name_dim):
+def _loss(name_dim):
     """
     损失函数
     :param name_dim:
