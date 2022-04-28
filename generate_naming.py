@@ -7,17 +7,18 @@ import random
 import re
 # import torch
 # import torch.nn as nn
-# from zhon.hanzi import punctuation
+from zhon.hanzi import punctuation
 # import jieba
 # import jieba.analyse
 # import jieba.posseg
-# import jiagu
+import jiagu
 # import logging
-# import synonyms
+import synonyms
 
 import os
 # from torch.autograd import Variable
 import pandas as pd
+from pypinyin import pinyin, lazy_pinyin, Style
 # from pypinyin import pinyin, lazy_pinyin, Style
 # import tensorflow as tf
 
@@ -266,30 +267,59 @@ def generate_name(name_dim, family_name, topK=10):
     columns = ['character', 'sentence', 'line', 'document', 'shengmu', 'yunmu', 'shengdiao', 'bihua', 'cixing',
                'char_sentiment',
                'sentiment_score', 'sentence_length', 'td_idf', 'degree', 'char_pos', 'pos']
-    excel = pd.DataFrame(pd.read_csv('./诗经.csv'));
+    counts=0
+    excel = pd.DataFrame(pd.read_csv(name_dim))
+    first_name_shengmu = pinyin(family_name, style=Style.INITIALS)[0][0]
+    first_name_yunmu = pinyin(family_name, style=Style.FINALS)[0][0]
+    firstName = excel[(((excel["shengdiao"] ==1) | (excel["shengdiao"] ==2) | (excel["shengdiao"] ==3)) & (excel["shengmu"] != first_name_shengmu) & (excel["yunmu"] != first_name_yunmu))]
 
-    firstName = excel[((excel["shengdiao"] ==1 | excel["shengdiao"] ==2 | excel["shengdiao"] ==3) & excel["shengmu"] != 'b' & excel["yunmu"] != 'ao')]
-    secondName = excel[(excel["shengmu"] != 'b' & excel["yunmu"] != 'ao')]
-    result = []
-    for f in firstName:
-        for s in secondName:
+    secondName = excel[((excel["shengmu"] != first_name_shengmu) & (excel["yunmu"] != first_name_yunmu))]
+    result = {}
+    firstNameCache = []
+    secondNameCache=[]
+    for i, f in firstName.iterrows():
+        if f["character"] in firstNameCache:
+            continue
+        firstNameCache.append(f["character"])
+        for j,s in secondName.iterrows():
             mean_score = 0
             bihua_score = 0
             nounce_score = 0
             sum_score = 0
             if f["character"] == s["character"]:
                 continue
+            preTest = family_name + f["character"] + s["character"];
+            if result.keys().__contains__(preTest):
+                continue
             if f["line"] == s["line"]:
                 mean_score += 10
             bihua_score = 100 / (f["bihua"] + s["bihua"])
             if ((f["shengdiao"] * 10 + s["shengdiao"]) in bestNounce):
                 nounce_score = 10
-            sum_score = mean_score * 100 + nounce_score * 10 + bihua_score * 0.25
-            result.append([sum_score, "鲍" + f["character"] + s["character"]])
-            result.sort()
-    print(result)
-    pass
+            sum_score = mean_score * 100 + nounce_score * 10 + bihua_score * 5
+            result[preTest] = sum_score
+            # counts += 1
+            # if counts > topK:
+            #     break
 
+    # print(result)
+    return result
+
+
+def save_name_to_csv(line, file_name):
+
+    """
+        保存到CSV
+        :param line: 要保存的内容
+        :param file_name: 文件名
+        :return:
+        """
+    columns = ['name', 'score']
+    tmp = []
+    for k in line.keys():
+        tmp.append([k,line.get(k)])
+    exefile = pd.DataFrame(tmp, columns=columns)
+    exefile.to_csv(file_name, index=0, encoding='utf_8_sig')
 
 def _loss(name_dim):
     """
@@ -320,4 +350,5 @@ def _train(name_dim):
 
 if __name__ == "__main__":
 
-    generate_name(1,1,10)
+    namemix = generate_name('./诗经.csv',"鲍",10)
+    save_name_to_csv(namemix,"./诗经_姓名.csv")

@@ -328,7 +328,7 @@ def name_filter(name_dim, family_name, skip_level=100):
         #     continue
         if shengmu in skip_shengmu and skip_level > 2:
             continue
-        if shengdiao not in ['1', '2'] and skip_level > 3:
+        if shengdiao not in ['1', '2','3','4'] and skip_level > 3:
             continue
             # 如果声调是2声，而且韵母不是a,o,e,i,wu,yu，则跳过
         if (shengdiao == 2 and yunmu not in yunmuStay) and skip_level > 4:
@@ -484,7 +484,7 @@ def generate_idx():
     name_overall_calc(name_dim)
     # hintWord = hint_word(name_dim)
     # name_dim.extend(hintWord)
-    result = name_filter(name_dim, '鲍', 0)
+    result = name_filter(name_dim, '鲍', 100)
 
     save_character_to_csv(result, "./诗经.csv")
 
