@@ -298,7 +298,11 @@ def name_filter(name_dim, family_name, skip_level=100):
     """
     :parameter name_dim 要处理的对象数组
     :parameter family_name 姓
-    :parameter skip_level 过滤等级，越低过滤的越少，越高过滤的越多
+    :parameter skip_level 过滤等级，越低过滤的越少，越高过滤的越多。
+    1级:过滤第一个字中的声母、韵母
+    2级：过滤掉指定的声母
+    3级：过滤掉3，4声
+    4级：2声，而且不是保留韵母的，则过滤掉
     """
     first_name_shengmu = pinyin(family_name, style=Style.INITIALS)[0][0]
     first_name_yunmu = pinyin(family_name, style=Style.FINALS)[0][0]
@@ -480,7 +484,7 @@ def generate_idx():
     name_overall_calc(name_dim)
     # hintWord = hint_word(name_dim)
     # name_dim.extend(hintWord)
-    result = name_filter(name_dim, '鲍', 100)
+    result = name_filter(name_dim, '鲍', 0)
 
     save_character_to_csv(result, "./诗经.csv")
 
@@ -496,6 +500,7 @@ def generate_idx():
 def analyze():
     _init_stroke('/Users/danebrown/develop/nlp/strokes.txt')
     generate_idx()
+
     pass
 
 
