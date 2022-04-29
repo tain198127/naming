@@ -57,7 +57,7 @@ yunmuStay = ['a', 'o', 'e', 'eu', 'wu', 'yu']
 skip_shengmu = ['b', 'p', 't', 'd', 'k']
 # 要跳过的词性，名词、代词、动词、量词都要跳过。因为这些词在名字中不好听
 skip_cixing = ['n', 'r', 'v', 'm', 'p', 'd', 'z']
-
+bad_name=["人","女","下","反","凶","尸","勿","犯","违","讼","丧","灭","媾","刑","宰","灾","乱","匪","穷","梏","贱","吝","患","害","笨","病","亡","丑"]
 
 def _cut(line):
     """
@@ -118,6 +118,8 @@ def readFile(fileName):
         doc = {'line': line, 'file': fileName, 'hash': hash}
         for word in seg_list:
             if word in skip_word or word.isdecimal() or word.isdigit() or word.isspace():
+                continue
+            if word in bad_name:
                 continue
             if word not in word_idx.keys():
                 word_idx[word] = []
@@ -484,7 +486,7 @@ def generate_idx():
     name_overall_calc(name_dim)
     # hintWord = hint_word(name_dim)
     # name_dim.extend(hintWord)
-    result = name_filter(name_dim, '鲍', 100)
+    result = name_filter(name_dim, '鲍', 0)
 
     save_character_to_csv(result, "./诗经.csv")
 
