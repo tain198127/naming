@@ -269,9 +269,10 @@ def generate_name(name_dim, family_name, topK=10):
     # x5 = random.randint()
     # x6 = random.randint()
     bestNounce = [11, 12, 13, 14, 21, 23, 24, 31, 32, 34]
-    columns = ['character', 'sentence', 'line', 'document', 'shengmu', 'yunmu', 'shengdiao', 'bihua', 'cixing',
-               'char_sentiment',
-               'sentiment_score', 'sentence_length', 'td_idf', 'degree', 'char_pos', 'pos']
+    columns = ['character', 'sentence', 'line', 'document', 'shengmu',
+               'yunmu', 'shengdiao', 'bihua', 'cixing','char_sentiment',
+               'sentiment_score', 'sentence_length', 'td_idf', 'degree', 'char_pos',
+               'pos','is_begin_of_sent','is_end_of_sent','is_begin_of_line','is_end_of_line']
     counts = 0
     excel = pd.DataFrame(pd.read_csv(name_dim))
     first_name_shengmu = pinyin(family_name, style=Style.INITIALS)[0][0]
@@ -304,10 +305,31 @@ def generate_name(name_dim, family_name, topK=10):
                 preTest = family_name + f["character"] + s["character"]
                 if preTest in result.keys():
                     continue
+                """
+                如果是同一篇文章
+                """
                 if f["line"] == s["line"]:
                     mean_score += 10
+                    """
+                        如果是文章的一头一尾
+                    """
+                    if f["is_begin_of_line"] and s["is_end_of_line"]:
+                        mean_score += 10
+                    elif f["is_end_of_line"] and s["is_begin_of_line"]:
+                        mean_score += 5
+
+                """
+                如果是同一段话
+                """
                 if f["sentence"] == s["sentence"]:
                     mean_score += 10
+                    """
+                    如果是一头一尾
+                    """
+                    if f["is_begin_of_sent"] and s["is_end_of_sent"]:
+                        mean_score += 20
+                    elif f["is_end_of_sent"] and s["is_begin_of_sent"]:
+                        mean_score +=15
                 bihua_score = 100 / (f["bihua"] + s["bihua"])
                 if (f["shengdiao"] * 10 + s["shengdiao"]) in bestNounce:
                     nounce_score = 10

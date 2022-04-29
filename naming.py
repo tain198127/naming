@@ -269,9 +269,10 @@ def save_character_to_csv(line, file_name):
     :return:
     """
 
-    columns = ['character', 'sentence', 'line', 'document', 'shengmu', 'yunmu', 'shengdiao', 'bihua', 'cixing',
-               'char_sentiment',
-               'sentiment_score', 'sentence_length', 'td_idf', 'degree', 'char_pos', 'pos']
+    columns = ['character', 'sentence', 'line', 'document', 'shengmu',
+               'yunmu', 'shengdiao', 'bihua', 'cixing','char_sentiment',
+               'sentiment_score', 'sentence_length', 'td_idf', 'degree', 'char_pos',
+               'pos','is_begin_of_sent','is_end_of_sent','is_begin_of_line','is_end_of_line']
     # line = []
     # for c in c_idx:
     #     """
@@ -321,6 +322,15 @@ def name_filter(name_dim, family_name, skip_level=100):
         cixing = ch[8]
         sentiment = ch[9]
         sentiment_score = ch[10]
+        sentence_length = ch[11]
+        td_idf=ch[12]
+        degree=ch[13]
+        char_pos=ch[14]
+        pos=ch[15]
+        is_begin_of_sent=ch[16]
+        is_end_of_sent=ch[17]
+        is_begin_of_line=ch[18]
+        is_end_of_line=ch[19]
 
         if (shengmu == first_name_shengmu or yunmu == first_name_yunmu) and skip_level > 1:
             continue
@@ -334,6 +344,12 @@ def name_filter(name_dim, family_name, skip_level=100):
             continue
             # 如果声调是2声，而且韵母不是a,o,e,i,wu,yu，则跳过
         if (shengdiao == 2 and yunmu not in yunmuStay) and skip_level > 4:
+            continue
+        if not is_end_of_line \
+                and not is_begin_of_line \
+                and not is_begin_of_sent \
+                and not is_end_of_sent \
+                and skip_level > 5:
             continue
         # if bihua > 12:
         #     continue
@@ -378,11 +394,15 @@ def name_overall_calc(name_dim):
     for ch in name_dim:
         td_idf = 1
         center_degree = cal_center_degree(ch)
-        char_pos, pos = cal_pos(ch)
+        char_pos, pos,is_begin_of_sent,is_end_of_sent,is_begin_of_line,is_end_of_line = cal_pos(ch)
         ch.append(td_idf)
         ch.append(center_degree)
         ch.append(char_pos)
         ch.append(pos)
+        ch.append(is_begin_of_sent)
+        ch.append(is_end_of_sent)
+        ch.append(is_begin_of_line)
+        ch.append(is_end_of_line)
 
 
 # 计算 tf_idf
@@ -420,6 +440,9 @@ def cal_pos(ch):
     """
     计算字符所在位置
     :param ch:
+    char 是字
+    sent 是句子
+    line 是文章
     :return:
     """
     char = ch[0]
@@ -428,7 +451,13 @@ def cal_pos(ch):
     sent_pos = line.index(sent)
     char_pos = sent.index(char)
     pos = sent_pos + char_pos
-    return char_pos, pos
+    char_idx_of_line = line.index(char)
+    is_begin_of_sent = char_pos == 0
+    is_end_of_sent = char_pos == len(sent)
+    is_begin_of_line = char_idx_of_line == 0
+    is_end_of_line = char_idx_of_line == len(line)
+
+    return char_pos, pos,is_begin_of_sent,is_end_of_sent,is_begin_of_line,is_end_of_line
 
 
 # 对某个字的联想
@@ -486,7 +515,7 @@ def generate_idx():
     name_overall_calc(name_dim)
     # hintWord = hint_word(name_dim)
     # name_dim.extend(hintWord)
-    result = name_filter(name_dim, '鲍', 0)
+    result = name_filter(name_dim, '鲍', 10)
 
     save_character_to_csv(result, "./诗经.csv")
 
