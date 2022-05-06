@@ -334,8 +334,8 @@ def generate_name(name_dim, family_name, topK=10):
                 if (f["shengdiao"] * 10 + s["shengdiao"]) in bestNounce:
                     nounce_score = 10
                 sum_score = mean_score * 100 + nounce_score * 10 + bihua_score * 5
-                if sum_score < 1100:
-                    continue
+                # if sum_score < 1100:
+                #     continue
                 result[preTest] = [f["character"], s["character"], sum_score,f['sentence'], f['line'], f['document'],s['sentence'], s['line'], s['document']]
                 counts += 1
                 if 0 < topK < counts:
@@ -390,5 +390,5 @@ def _train(name_dim):
 
 
 if __name__ == "__main__":
-    namemix = generate_name('./诗经.csv', "鲍", -1)
-    save_name_to_csv(namemix, "./诗经_姓名.csv")
+    namemix = generate_name('./易经.csv', "鲍", -1)
+    save_name_to_csv(namemix, "./易经_姓名.csv")
