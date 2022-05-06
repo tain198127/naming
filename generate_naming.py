@@ -205,7 +205,9 @@ def _random_select(name_dim):
     # random.randrange(1,len(name_set))
     pass
 
-
+"""
+完成
+"""
 def generate_name(name_dim, family_name, topK=10):
     """
 
@@ -251,6 +253,7 @@ def generate_name(name_dim, family_name, topK=10):
     算法N中各个系数需要通过深度学习得到
     8. n越大表明越好：优化参数和损失函数要好好设计
     超参：D,E,S,Y,P,N中的算法参数
+    9. 姓氏与名字，应该符合开口音与闭口音规则，即姓名名 应该符合开闭开，或者闭开闭
     :param name_dim: 名字矩阵
     :param family_name: 姓氏
     :param topK 返回几个名字
@@ -288,8 +291,11 @@ def generate_name(name_dim, family_name, topK=10):
     # 找出姓名中的第二个名字
     secondName = excel[((excel["shengmu"] != family_name_shengmu) & (excel["yunmu"] != family_name_yunmu))]
     result = {}
+
     firstNameCache = []
     secondNameCache = []
+    firstName = firstName.sample(n=1000)
+    secondName = secondName.sample(n=1000)
     with tqdm(total=len(firstName)) as pbar:
         pbar.set_description('Processing:')
         for i, f in firstName.iterrows():
@@ -342,13 +348,24 @@ def generate_name(name_dim, family_name, topK=10):
                 sum_score = mean_score * 100 + nounce_score * 10 + bihua_score * 5
                 # if sum_score < 1100:
                 #     continue
-                result[preTest] = [f["character"], s["character"], sum_score,f['sentence'], f['line'], f['document'],s['sentence'], s['line'], s['document']]
+                score=[]
+                for c in columns:
+                    score.append(f[c])
+                for c in columns:
+                    score.append(s[c])
+                score.append(sum_score)
+
+                # result[preTest] = [f["character"], s["character"], sum_score,f['sentence'], f['line'], f['document'],s['sentence'], s['line'], s['document']]
+                result[preTest] = score
                 counts += 1
                 if 0 < topK < counts:
                     return result
     return result
 
 
+"""
+完成
+"""
 def save_name_to_csv(line, file_name):
     """
         保存到CSV
@@ -359,12 +376,18 @@ def save_name_to_csv(line, file_name):
     columns = ['name', '名1', '名2', 'score','名1出自句','名1出自章','名1出自篇','名2出自句','名2出自章','名2出自篇']
     tmp = []
     for k in line.keys():
-        tmp.append([k, line.get(k)[0],
-                    line.get(k)[1], line.get(k)[2],
-                    line.get(k)[3],line.get(k)[4],
-                    line.get(k)[5],line.get(k)[6],
-                    line.get(k)[7],line.get(k)[8]])
-    exefile = pd.DataFrame(tmp, columns=columns)
+        names = []
+        names.append(k)
+        for c in line.get(k):
+            names.append(c)
+        tmp.append(names)
+        # tmp.append([k, line.get(k)[0],
+        #             line.get(k)[1], line.get(k)[2],
+        #             line.get(k)[3],line.get(k)[4],
+        #             line.get(k)[5],line.get(k)[6],
+        #             line.get(k)[7],line.get(k)[8]])
+    # exefile = pd.DataFrame(tmp, columns=columns)
+    exefile = pd.DataFrame(tmp)
     exefile.to_csv(file_name, index=0, encoding='utf_8_sig')
 
 
@@ -396,5 +419,5 @@ def _train(name_dim):
 
 
 if __name__ == "__main__":
-    namemix = generate_name('./易经.csv', "鲍", -1)
-    save_name_to_csv(namemix, "./易经_姓名.csv")
+    namemix = generate_name('./诗经.csv', "鲍", -1)
+    save_name_to_csv(namemix, "./诗经_姓名.csv")

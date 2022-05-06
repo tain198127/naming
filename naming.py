@@ -509,7 +509,7 @@ def generate_idx():
     读取诗经、易经、道德经的内容，并形成倒排索引，数据预处理
     :return:
     """
-    widx = readFile('./易经.txt')
+    widx = readFile('./诗经.txt')
     c_idx = read_character(widx)
     name_dim = name_mapping(c_idx)
     name_overall_calc(name_dim)
@@ -517,7 +517,7 @@ def generate_idx():
     # name_dim.extend(hintWord)
     result = name_filter(name_dim, '鲍', -1)
 
-    save_character_to_csv(result, "./易经.csv")
+    save_character_to_csv(result, "./诗经.csv")
 
     # yijing_idx = readFile('/Users/danebrown/develop/nlp/易经.txt')
     # yijing_c_idx = read_character(yijing_idx)
