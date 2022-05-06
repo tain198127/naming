@@ -269,18 +269,24 @@ def generate_name(name_dim, family_name, topK=10):
     # x5 = random.randint()
     # x6 = random.randint()
     bestNounce = [11, 12, 13, 14, 21, 23, 24, 31, 32, 34]
+    # 打印的列
     columns = ['character', 'sentence', 'line', 'document', 'shengmu',
                'yunmu', 'shengdiao', 'bihua', 'cixing','char_sentiment',
                'sentiment_score', 'sentence_length', 'td_idf', 'degree', 'char_pos',
                'pos','is_begin_of_sent','is_end_of_sent','is_begin_of_line','is_end_of_line']
+    #计数器
     counts = 0
+    #读取信息
     excel = pd.DataFrame(pd.read_csv(name_dim))
-    first_name_shengmu = pinyin(family_name, style=Style.INITIALS)[0][0]
-    first_name_yunmu = pinyin(family_name, style=Style.FINALS)[0][0]
+    # 姓氏的声母
+    family_name_shengmu = pinyin(family_name, style=Style.INITIALS)[0][0]
+    # 姓氏的韵母
+    family_name_yunmu = pinyin(family_name, style=Style.FINALS)[0][0]
+    # 找出姓名中的第一个名字
     firstName = excel[(((excel["shengdiao"] == 1) | (excel["shengdiao"] == 2) | (excel["shengdiao"] == 3)) & (
-                excel["shengmu"] != first_name_shengmu) & (excel["yunmu"] != first_name_yunmu))]
-
-    secondName = excel[((excel["shengmu"] != first_name_shengmu) & (excel["yunmu"] != first_name_yunmu))]
+                excel["shengmu"] != family_name_shengmu) & (excel["yunmu"] != family_name_yunmu))]
+    # 找出姓名中的第二个名字
+    secondName = excel[((excel["shengmu"] != family_name_shengmu) & (excel["yunmu"] != family_name_yunmu))]
     result = {}
     firstNameCache = []
     secondNameCache = []
