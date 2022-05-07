@@ -419,5 +419,5 @@ def _train(name_dim):
 
 
 if __name__ == "__main__":
-    namemix = generate_name('./诗经.csv', "鲍", -1)
-    save_name_to_csv(namemix, "./诗经_姓名.csv")
+    namemix = generate_name('./庄子.csv', "鲍", -1)
+    save_name_to_csv(namemix, "./庄子_姓名.csv")

@@ -128,7 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 *.csv
+**/*.csv
 /*.csv
 /*.xlsx
 /*.zip
 /data/
+/庄子.csv
