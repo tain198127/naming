@@ -510,7 +510,7 @@ def generate_idx():
     :return:
     """
 
-    widx = readFile('./庄子.txt')
+    widx = readFile('./唐诗.txt')
     c_idx = read_character(widx)
     name_dim = name_mapping(c_idx)
     name_overall_calc(name_dim)
@@ -518,7 +518,7 @@ def generate_idx():
     # name_dim.extend(hintWord)
     result = name_filter(name_dim, '鲍', -1)
 
-    save_character_to_csv(result, "./庄子.csv")
+    save_character_to_csv(result, "./唐诗.csv")
 
     # yijing_idx = readFile('/Users/danebrown/develop/nlp/易经.txt')
     # yijing_c_idx = read_character(yijing_idx)

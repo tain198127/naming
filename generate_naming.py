@@ -205,11 +205,13 @@ def _random_select(name_dim):
     # random.randrange(1,len(name_set))
     pass
 
-"""
-完成
-"""
-def generate_name(name_dim, family_name, topK=10):
+
+def generate_name(name_dim, family_name, topK=10, sample_count=1000):
     """
+    :param name_dim: 名字张量
+    :param family_name: 姓氏
+    :param topK: 取TOP
+    :param sample_count: 抽样数量 0以下表示全部
 
     生成一些名字，进行组合。这里是最核心的算法。
     模型算法规则：
@@ -245,6 +247,7 @@ def generate_name(name_dim, family_name, topK=10):
 41，42，43
 两个字名字规律：第一个是姓氏：
 最佳2分，次之1分，其余不得分
+4声的姓氏，在名字中尽量不要再出现4声
 121,133,142最佳|124,132,141次之
 212,213,214,231,232,241,242,243最佳|221,224,223,211,234
 311,312,313,314,321,324,341,342,343最佳|322,323次之
@@ -289,23 +292,28 @@ def generate_name(name_dim, family_name, topK=10):
     firstName = excel[(((excel["shengdiao"] == 1) | (excel["shengdiao"] == 2) | (excel["shengdiao"] == 3)) & (
                 excel["shengmu"] != family_name_shengmu) & (excel["yunmu"] != family_name_yunmu))]
     # 找出姓名中的第二个名字
-    secondName = excel[((excel["shengmu"] != family_name_shengmu) & (excel["yunmu"] != family_name_yunmu))]
+    secondName = excel[(excel["shengdiao"] != 4)& ((excel["shengmu"] != family_name_shengmu) & (excel["yunmu"] != family_name_yunmu))]
     result = {}
 
     firstNameCache = []
     secondNameCache = []
-    firstName = firstName.sample(n=1000)
-    secondName = secondName.sample(n=1000)
+    if sample_count > 0:
+        firstName = firstName.sample(n=sample_count)
+        secondName = secondName.sample(n=sample_count)
     with tqdm(total=len(firstName)) as pbar:
         pbar.set_description('Processing:')
         for i, f in firstName.iterrows():
             pbar.update(1)
+            # 第一个字已经存在过了
             if f["character"] in firstNameCache:
                 continue
+            # 避免不好的字
             if f["character"] in naming.bad_name:
                 continue
+            # 加入缓存，避免重复计算
             firstNameCache.append(f["character"])
             for j, s in secondName.iterrows():
+                # 避免不好的字
                 if s["character"] in naming.bad_name:
                     continue
                 mean_score = 0
@@ -391,33 +399,6 @@ def save_name_to_csv(line, file_name):
     exefile.to_csv(file_name, index=0, encoding='utf_8_sig')
 
 
-def _loss(name_dim):
-    """
-    损失函数
-    :param name_dim:
-    :return:
-    """
-    pass
-
-
-def _sgd(name_dim):
-    """
-    定义优化函数
-    :param name_dim:
-    :return:
-    """
-    pass
-
-
-def _train(name_dim):
-    """
-    训练
-    :param name_dim:
-    :return:
-    """
-    pass
-
-
 if __name__ == "__main__":
-    namemix = generate_name('./庄子.csv', "鲍", -1)
-    save_name_to_csv(namemix, "./庄子_姓名.csv")
+    namemix = generate_name('./唐诗.csv', "鲍", -1,-1)
+    save_name_to_csv(namemix, "./唐诗_姓名.csv")

@@ -17,6 +17,8 @@ all_letters = string.ascii_letters + " .,;'"    #　abcdefghijklmnopqrstuvwxyzAB
 n_letters = len(all_letters)        # 57
 category_lines = {}
 all_categories = []
+criterion = nn.NLLLoss()
+learning_rate = 0.005  # If you set this too high, it might explode. If too low, it might not learn
 
 
 def unicodeToAscii(s):
@@ -84,6 +86,10 @@ def randomChoice(l):
 
 
 def randomTrainingExample():
+    """
+    产生随机样本
+    :return:
+    """
     category = randomChoice(all_categories)
     line = randomChoice(category_lines[category])
     category_tensor = torch.Tensor([all_categories.index(category)]).long()
@@ -132,15 +138,18 @@ def predict(input_line, n_predictions=3):
 
 
 path = '/Users/danebrown/develop/github/naming/data/'
+
+
 def donothing():
+
    filewin = Toplevel(root)
    button = Button(filewin, text="Do nothing button")
    button.pack()
 
+
 def train():
-# 以下为训练
-    criterion = nn.NLLLoss()
-    learning_rate = 0.005  # If you set this too high, it might explode. If too low, it might not learn
+
+    # 以下为训练
 
     n_iters = 100000
     print_every = 5000
@@ -149,21 +158,25 @@ def train():
     all_losses = []
 
     start = time.time()
+    # 迭代次数
     for iter in range(1, n_iters + 1):
+        # 生成随机样本
         category, line, category_tensor, line_tensor = randomTrainingExample()
+        # 训练 核心
         output, loss = train(category_tensor, line_tensor)
+        # 累计损失
         current_loss += loss
-
+        # 每5000次 打印一次
         if iter % print_every == 0:
             guess, guess_i = categoryFromOutput(output)
             correct = '✓' if guess == category else '✗(%s)' % category
             print('iter:{0} {1}% (time:{2}) loss:{3:.4f} {4} / {5} {6}'.format(iter, iter / n_iters * 100, timeSince(start), loss, line, guess, correct))
-
+        # 每1000 次打印一次
         if iter % plot_every == 0:
             all_losses.append(current_loss / plot_every)
             plt.plot(all_losses)
             current_loss = 0
-
+    # 保存模型
     torch.save(model.state_dict(), path+'model.pth')
     plt.show()
 
